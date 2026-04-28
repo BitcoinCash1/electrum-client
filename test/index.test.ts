@@ -86,11 +86,11 @@ describe('ElectrumClient TCP', () => {
   // Currently our implementation will just throw "Connection to server lost, please retry" since the connect is ended.
   test.skip('should make a request after reconnection', async () => {
     // @ts-ignore Hijack Typescript to call method on private field in order to simulate connection close
-    tcpClient.conn?.end();
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const res = await tcpClient.server_banner();
-    assert.ok(res);
-  });
+    tcpClient.conn?.end()
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const res = await tcpClient.server_banner()
+    assert.ok(res)
+  })
 })
 
 describe('ElectrumClient TLS', () => {
