@@ -32,9 +32,12 @@ import { ElectrumClient } from '@bitcoincash/electrum-client'
 
 const client = new ElectrumClient({
   host: 'localhost',
-  port: 50002,
+  port: 50001,
   protocol: 'tcp'
 })
 
-await client.connect()
+const res = await client.initElectrum(
+  { client: 'electrum-client-js', version: ['1.6.0'] },
+  { retryPeriod: 1000 }
+)
 ```
