@@ -24,7 +24,7 @@
 		"fulcrum"
 	],
 	"engines": {
-		"node": ">=6"
+		"node": ">=14"
 	},
 	"contributors": [
 		{ "name": "Yuki Akiyama" },
