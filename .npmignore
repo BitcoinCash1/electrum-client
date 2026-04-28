@@ -1,0 +1,10 @@
+# Ignore test files
+test/
+
+# Ignore config files
+eslint.config.js
+.prettierrc
+
+# Ignore Gitlab yml
+.gitlab-ci.yml
+
