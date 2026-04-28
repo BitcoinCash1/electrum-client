@@ -1,6 +1,6 @@
 {
 	"name": "@bitcoincash/electrum-client",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Electrum protocol client for Node.js supporting Fulcrum",
 	"author": "Melroy van den Berg <melroy@melroy.org>",
 	"license": "MIT",
