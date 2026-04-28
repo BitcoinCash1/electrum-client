@@ -1,6 +1,7 @@
 # electrum-client
 
-Strictly typed Electrum Protocol Client (TypeScript) for Node.js, compatible with [Fulcrum](https://github.com/cculianu/electrum-cash-protocol). BCH compatible.
+Strictly typed Electrum Protocol Client (TypeScript) for Node.js, compatible with
+[Fulcrum](https://github.com/cculianu/electrum-cash-protocol). BCH compatible.
 
 Created by [Melroy van den Berg](https://melroy.org).
 
