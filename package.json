@@ -1,7 +1,7 @@
 {
-	"name": "@mempool/electrum-client",
-	"version": "1.1.9",
-	"description": "Electrum protocol client for Node.js",
+	"name": "@bitcoincash/electrum-client",
+	"version": "1.2.0",
+	"description": "Electrum protocol client for Node.js supporting Fulcrum",
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
@@ -10,15 +10,18 @@
 	"devDependencies": {},
 	"repository": {
 		"type": "git",
-		"url": "git://github.com/mempool/electrum-client.git"
+		"url": "git://github.com/BitcoinCash1/electrum-client.git"
 	},
 	"bugs": {
-		"url": "https://github.com/mempool/electrum-client/issues"
+		"url": "https://github.com/BitcoinCash1/electrum-client/issues"
 	},
 	"keywords": [
 		"bitcoin",
+		"cash",
+		"bitcoin cash",
 		"electrum",
-		"electrumx"
+		"electrumx",
+		"fulcrum"
 	],
 	"engines": {
 		"node": ">=6"
