@@ -12,7 +12,7 @@
 		"check-types": "tsc --noEmit",
 		"test": "vitest",
 		"lint": "npx --node-options='--experimental-strip-types' eslint src --flag unstable_native_nodejs_ts_config",
-		"fix": "npx --node-options='--experimental-strip-types' eslint src --fix --flag unstable_native_nodejs_ts_config",
+		"lint:fix": "npx --node-options='--experimental-strip-types' eslint src --fix --flag unstable_native_nodejs_ts_config",
 		"format": "prettier --check \"**/*.{js,ts}\"",
 		"format:fix": "prettier --write \"**/*.{js,ts}\""
 	},

@@ -26,8 +26,9 @@ export abstract class Client {
 		this.host = host;
 		this.callback_message_queue = {};
 		this.subscribe = new EventEmitter();
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		this.mp = new util.MessageParser((body: string | undefined, n: number) => {
-			this.onMessage(body, n);
+			this.onMessage(body);
 		});
 		this._protocol = protocol; // saving defaults
 		this.conn = null;
@@ -63,14 +64,14 @@ export abstract class Client {
 			this.conn.setKeepAlive(true, 0);
 			this.conn.setNoDelay(true);
 			this.conn.on('connect', () => {
-				this.conn && this.conn.setTimeout(0);
+				if (this.conn) this.conn.setTimeout(0);
 				this.onConnect();
 			});
 			this.conn.on('close', () => {
 				this.onClose();
 			});
 			this.conn.on('data', (chunk: Buffer) => {
-				this.conn && this.conn.setTimeout(0);
+				if (this.conn) this.conn.setTimeout(0);
 				this.onRecv(chunk);
 			});
 			this.conn.on('error', (e: Error) => {
@@ -106,8 +107,10 @@ export abstract class Client {
 		if (this.status === 0) {
 			return;
 		}
-		this.conn && this.conn.end();
-		this.conn && this.conn.destroy();
+		if (this.conn) {
+			this.conn.end();
+			this.conn.destroy();
+		}
 		this.status = 0;
 	}
 
@@ -119,7 +122,7 @@ export abstract class Client {
 			const id = ++this.id;
 			const content = util.makeRequest(method, params, id);
 			this.callback_message_queue[id] = util.createPromiseResult(resolve, reject);
-			this.conn && this.conn.write(content + '\n');
+			if (this.conn) this.conn.write(content + '\n');
 		});
 	}
 
@@ -142,7 +145,7 @@ export abstract class Client {
 			const content = '[' + contents.join(',') + ']';
 			this.callback_message_queue[this.id] = util.createPromiseResultBatch(resolve, reject, arguments_far_calls);
 			// callback will exist only for max id
-			this.conn && this.conn.write(content + '\n');
+			if (this.conn) this.conn.write(content + '\n');
 		});
 	}
 
@@ -172,7 +175,7 @@ export abstract class Client {
 		}
 	}
 
-	protected onMessage(body: string | undefined, n: number): void {
+	protected onMessage(body: string | undefined): void {
 		if (!body) return;
 		const msg = JSON.parse(body);
 		if (msg instanceof Array) {
@@ -186,9 +189,11 @@ export abstract class Client {
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	protected onConnect(): void {
 	}
 
+	 
 	protected onClose(): void {
 		this.status = 0;
 

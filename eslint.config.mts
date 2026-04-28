@@ -9,4 +9,9 @@ export default defineConfig([
   tseslint.configs.recommended,
   tseslint.configs.stylistic,
   eslintConfigPrettier,
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ]);
