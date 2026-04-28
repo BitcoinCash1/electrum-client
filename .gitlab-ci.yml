@@ -1,0 +1,58 @@
+default:
+  image: registry.melroy.org/melroy/docker-images/pnpm:24
+
+  before_script:
+    - pnpm install --prefer-offline --prefer-frozen-lockfile
+
+  # Global cache
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+      - .cache/Cypress
+      - .turbo
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+stages:
+  - build
+  - test
+  #- deploy
+
+build:
+  stage: build
+  script:
+    - pnpm build
+  interruptible: true
+  artifacts:
+    name: 'Compiled dist'
+    expire_in: 1 week
+    paths:
+      - dist
+
+format_lint_test:
+  stage: test
+  script:
+    - pnpm format
+    - pnpm lint
+    - pnpm test
+  interruptible: true
+
+# pages:
+#   stage: deploy
+#   rules:
+#     - if: '$CI_PROJECT_NAMESPACE == "bitcoincash" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#   needs:
+#     - job: full_build
+#       artifacts: true
+#   before_script: []
+#   cache: {}
+#   script:
+#     - mv something public
+#   artifacts:
+#     paths:
+#       - public
