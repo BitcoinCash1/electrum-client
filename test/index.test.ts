@@ -87,13 +87,9 @@ describe('ElectrumClient TCP', () => {
   test.skip('should make a request after reconnection', async () => {
     // @ts-ignore Hijack Typescript to call method on private field in order to simulate connection close
     tcpClient.conn?.end();
-    console.log('hello 0?')
     await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('hello 1?')
     const res = await tcpClient.server_banner();
-    console.log('hello 2?')
     assert.ok(res);
-    console.log('hello 3?')
   });
 })
 
