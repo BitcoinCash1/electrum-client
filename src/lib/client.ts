@@ -1,34 +1,45 @@
-'use strict';
-let net = require('net');
-let tls = require('tls');
+import net from 'net';
+import tls from 'tls';
+import { EventEmitter } from 'events';
+import { TlsSocketWrapper } from './tls-socket-wrapper.js';
+import * as util from './util.js';
+import { Callbacks, ElectrumRequestBatchParams, ElectrumRequestParams } from '../types/index.js';
+
 const TIMEOUT = 60000;
 
-const TlsSocketWrapper = require('./TlsSocketWrapper.js');
-const EventEmitter = require('events').EventEmitter;
-const util = require('./util');
+export abstract class Client {
 
-class Client {
+	protected id: number;
+	protected port: number;
+	protected host: string;
+	protected callback_message_queue: Record<number, (err: Error | null, result?: any) => void>;
+	protected subscribe: EventEmitter;
+	protected mp: util.MessageParser;
+	protected conn: net.Socket | TlsSocketWrapper | null;
+	protected status: number;
+	private _protocol: string;
+	protected onErrorCallback: ((e: Error) => void) | null;
 
-	constructor(port, host, protocol, options, callbacks) {
+	constructor(port: number, host: string, protocol: string, callbacks?: Callbacks) {
 		this.id = 0;
 		this.port = port;
 		this.host = host;
 		this.callback_message_queue = {};
 		this.subscribe = new EventEmitter();
-		this.mp = new util.MessageParser((body, n) => {
+		this.mp = new util.MessageParser((body: string | undefined, n: number) => {
 			this.onMessage(body, n);
 		});
 		this._protocol = protocol; // saving defaults
-		this._options = options;
+		this.conn = null;
+		this.status = 0;
 
 		this.onErrorCallback = (callbacks && callbacks.onError) ? callbacks.onError : null;
 
-		this.initSocket(protocol, options);
+		this.initSocket(protocol);
 	}
 
-	initSocket(protocol, options) {
+	protected initSocket(protocol?: string): void {
 		protocol = protocol || this._protocol;
-		options = options || this._options;
 		switch (protocol) {
 			case 'tcp':
 				this.conn = new net.Socket();
@@ -46,38 +57,40 @@ class Client {
 				throw new Error('unknown protocol');
 		}
 
-		this.conn.setTimeout(TIMEOUT);
-		this.conn.setEncoding('utf8');
-		this.conn.setKeepAlive(true, 0);
-		this.conn.setNoDelay(true);
-		this.conn.on('connect', () => {
-			this.conn.setTimeout(0);
-			this.onConnect();
-		});
-		this.conn.on('close', e => {
-			this.onClose(e);
-		});
-		this.conn.on('data', chunk => {
-			this.conn.setTimeout(0);
-			this.onRecv(chunk);
-		});
-		this.conn.on('error', e => {
-			this.onError(e);
-		});
+		if (this.conn) {
+			this.conn.setTimeout(TIMEOUT);
+			this.conn.setEncoding('utf8');
+			this.conn.setKeepAlive(true, 0);
+			this.conn.setNoDelay(true);
+			this.conn.on('connect', () => {
+				this.conn && this.conn.setTimeout(0);
+				this.onConnect();
+			});
+			this.conn.on('close', () => {
+				this.onClose();
+			});
+			this.conn.on('data', (chunk: Buffer) => {
+				this.conn && this.conn.setTimeout(0);
+				this.onRecv(chunk);
+			});
+			this.conn.on('error', (e: Error) => {
+				this.onError(e);
+			});
+		}
 		this.status = 0;
 	}
 
-	connect() {
+	protected connect(): Promise<void> {
 		if (this.status === 1) {
 			return Promise.resolve();
 		}
 		this.status = 1;
-		return this.connectSocket(this.conn, this.port, this.host);
+		return this.connectSocket(this.conn!, this.port, this.host);
 	}
 
-	connectSocket(conn, port, host) {
+	private connectSocket(conn: net.Socket | TlsSocketWrapper, port: number, host: string): Promise<void> {
 		return new Promise((resolve, reject) => {
-			const errorHandler = e => reject(e);
+			const errorHandler = (e: Error) => reject(e);
 			
 			conn.on('error', errorHandler);
 
@@ -89,16 +102,16 @@ class Client {
 		});
 	}
 
-	close() {
+	close(): void {
 		if (this.status === 0) {
 			return;
 		}
-		this.conn.end();
-		this.conn.destroy();
+		this.conn && this.conn.end();
+		this.conn && this.conn.destroy();
 		this.status = 0;
 	}
 
-	request(method, params) {
+	protected request(method: string, params: ElectrumRequestParams): Promise<any> {
 		if (this.status === 0) {
 			return Promise.reject(new Error('Connection to server lost, please retry'));
 		}
@@ -106,18 +119,18 @@ class Client {
 			const id = ++this.id;
 			const content = util.makeRequest(method, params, id);
 			this.callback_message_queue[id] = util.createPromiseResult(resolve, reject);
-			this.conn.write(content + '\n');
+			this.conn && this.conn.write(content + '\n');
 		});
 	}
 
-	requestBatch(method, params, secondParam) {
+	protected requestBatch(method: string, params: ElectrumRequestParams, secondParam?: ElectrumRequestBatchParams): Promise<any> {
 		if (this.status === 0) {
 			return Promise.reject(new Error('Connection to server lost, please retry'));
 		}
 		return new Promise((resolve, reject) => {
-			let arguments_far_calls = {};
-			let contents = [];
-			for (let param of params) {
+			const arguments_far_calls: Record<number, any> = {};
+			const contents = [];
+			for (const param of params) {
 				const id = ++this.id;
 				if (secondParam !== undefined) {
 					contents.push(util.makeRequest(method, [param, secondParam], id));
@@ -129,15 +142,15 @@ class Client {
 			const content = '[' + contents.join(',') + ']';
 			this.callback_message_queue[this.id] = util.createPromiseResultBatch(resolve, reject, arguments_far_calls);
 			// callback will exist only for max id
-			this.conn.write(content + '\n');
+			this.conn && this.conn.write(content + '\n');
 		});
 	}
 
-	response(msg) {
-		let callback;
+	private response(msg: any): void {
+		let callback: ((err: Error | null, result?: any) => void) | undefined;
 		if (!msg.id && msg[0] && msg[0].id) {
 			// this is a response from batch request
-			for (let m of msg) {
+			for (const m of msg) {
 				if (m.id && this.callback_message_queue[m.id]) {
 					callback = this.callback_message_queue[m.id];
 					delete this.callback_message_queue[m.id];
@@ -159,7 +172,8 @@ class Client {
 		}
 	}
 
-	onMessage(body, n) {
+	protected onMessage(body: string | undefined, n: number): void {
+		if (!body) return;
 		const msg = JSON.parse(body);
 		if (msg instanceof Array) {
 			this.response(msg);
@@ -172,27 +186,29 @@ class Client {
 		}
 	}
 
-	onConnect() {
+	protected onConnect(): void {
 	}
 
-	onClose(e) {
+	protected onClose(): void {
 		this.status = 0;
 
 		Object.keys(this.callback_message_queue).forEach(key => {
-			this.callback_message_queue[key](new Error('close connect'));
-			delete this.callback_message_queue[key];
+			const callback = this.callback_message_queue[Number(key)];
+			if (callback) {
+				callback(new Error('close connect'));
+			}
+			delete this.callback_message_queue[Number(key)];
 		});
 	}
 
-	onRecv(chunk) {
+	protected onRecv(chunk: Buffer): void {
 		this.mp.run(chunk);
 	}
 
-	onError(e) {
+	protected onError(e: Error): void {
 		if (this.onErrorCallback != null) {
 			this.onErrorCallback(e);
 		}
 	}
 }
 
-module.exports = Client;
