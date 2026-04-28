@@ -1,6 +1,8 @@
 # electrum-client
 
-Strict typed Electrum Protocol Client (TypeScript) for Node.js, compatible with [Fulcrum](https://github.com/cculianu/electrum-cash-protocol). BCH compatible.
+Strictly typed Electrum Protocol Client (TypeScript) for Node.js, compatible with [Fulcrum](https://github.com/cculianu/electrum-cash-protocol). BCH compatible.
+
+Created by [Melroy van den Berg](https://melroy.org).
 
 # Based on
 
@@ -12,14 +14,26 @@ Strict typed Electrum Protocol Client (TypeScript) for Node.js, compatible with 
 
 # Features
 
-- persistence (ping strategy and reconnection)
-- batch requests
-- works in nodejs
+- Persistence (ping strategy and reconnection)
+- Batch requests
+- Works in nodejs
 
-## protocol spec
+## Protocol spec
 
 - https://electrum-cash-protocol.readthedocs.io/en/latest/index.html
 
 ## Usage
 
 Relies on `net` so will only run in Node.JS environment.
+
+```ts
+import { ElectrumClient } from '@bitcoincash/electrum-client'
+
+const client = new ElectrumClient({
+  host: 'localhost',
+  port: 50002,
+  protocol: 'tcp'
+})
+
+await client.connect()
+```
