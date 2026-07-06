@@ -190,7 +190,7 @@ export abstract class Client {
       const err = e as Error
       const match = /position (\d+)/.exec(err.message)
       const pos = match ? Number(match[1]) : -1
-      let context = ''
+      let context: string
       if (pos >= 0) {
         const from = Math.max(0, pos - 100)
         const to = Math.min(body.length, pos + 100)

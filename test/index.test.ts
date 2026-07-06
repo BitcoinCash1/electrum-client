@@ -1,4 +1,4 @@
-/* eslint-disable max-len, @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { describe, test, assert, beforeAll, afterAll } from 'vitest'
 
 // SUT
