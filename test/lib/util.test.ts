@@ -31,6 +31,29 @@ describe('util package', () => {
       assert.deepStrictEqual(out, ['{"a":1}'])
     })
 
+    test('reset() discards a partial message so a reconnect does not splice streams', () => {
+      // Simulates a disconnect mid-response followed by a reconnect: the buffer
+      // holds the unterminated tail of the dead connection's message, then the
+      // new socket's first (complete) message arrives. Without reset() the two
+      // would be concatenated and fail to parse.
+      const out: string[] = []
+      const mp = new util.MessageParser((body) => out.push(body!))
+
+      // Partial, unterminated message from the connection that just died.
+      mp.run(Buffer.from('{"result":["deadbeef","cafe'))
+      assert.deepStrictEqual(out, [], 'nothing emitted yet (no newline)')
+
+      // Socket replaced on reconnect -> parser state must be cleared.
+      mp.reset()
+
+      // Fresh, complete message on the new socket.
+      mp.run(Buffer.from('{"id":15,"jsonrpc":"2.0","result":["Fulcrum 2.1.1","1.6"]}\n'))
+
+      assert.strictEqual(out.length, 1)
+      assert.doesNotThrow(() => JSON.parse(out[0]!))
+      assert.strictEqual(JSON.parse(out[0]!).id, 15)
+    })
+
     test('reassembles a multi-byte UTF-8 char split across chunk boundaries', () => {
       // A single message containing a 4-byte emoji (😀 => F0 9F 98 80),
       // split so the sequence straddles two chunks. Decoding chunks

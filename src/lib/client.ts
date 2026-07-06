@@ -40,6 +40,10 @@ export abstract class Client {
 
   protected initSocket(protocol?: string): void {
     protocol = protocol || this._protocol
+    // A fresh socket means fresh framing state. Drop any partial message left in
+    // the parser by a previous (now-dead) connection, otherwise the new socket's
+    // first bytes get concatenated onto that stale tail and corrupt parsing.
+    this.mp.reset()
     switch (protocol) {
       case 'tcp':
         this.conn = new net.Socket()
@@ -59,7 +63,9 @@ export abstract class Client {
 
     if (this.conn) {
       this.conn.setTimeout(TIMEOUT)
-      this.conn.setEncoding('utf8')
+      // Do NOT setEncoding('utf8'): the parser buffers raw bytes and decodes only
+      // complete messages. Delivering pre-decoded strings would force a lossy
+      // string->bytes round-trip and can corrupt multi-byte UTF-8 sequences.
       this.conn.setKeepAlive(true, 0)
       this.conn.setNoDelay(true)
       this.conn.on('connect', () => {
