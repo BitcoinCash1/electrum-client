@@ -7,26 +7,6 @@ export const makeRequest = (method: string, params: any[], id: number): string =
   })
 }
 
-const createRecursiveParser = (max_depth: number, delimiter: string) => {
-  const MAX_DEPTH = max_depth
-  const DELIMITER = delimiter
-  const recursiveParser = (n: number, buffer: string, callback: (chunk: string, n: number) => void) => {
-    if (buffer.length === 0) {
-      return { code: 0, buffer: buffer }
-    }
-    if (n > MAX_DEPTH) {
-      return { code: 1, buffer: buffer }
-    }
-    const xs = buffer.split(DELIMITER)
-    if (xs.length === 1) {
-      return { code: 0, buffer: buffer }
-    }
-    callback(xs.shift()!, n)
-    return recursiveParser(n + 1, xs.join(DELIMITER), callback)
-  }
-  return recursiveParser
-}
-
 export const createPromiseResult = (resolve: (value: any) => void, reject: (reason?: any) => void) => {
   return (err: Error | null, result?: any) => {
     if (err) reject(err)
@@ -51,29 +31,37 @@ export const createPromiseResultBatch = (
   }
 }
 
+const DELIMITER = 0x0a // '\n'
+
 export class MessageParser {
-  private buffer: string
+  private buffer: Buffer
   private callback: (body: string | undefined, n: number) => void
-  private recursiveParser: (
-    n: number,
-    buffer: string,
-    callback: (chunk: string, n: number) => void
-  ) => { code: number; buffer: string }
 
   constructor(callback: (body: string | undefined, n: number) => void) {
-    this.buffer = ''
+    this.buffer = Buffer.alloc(0)
     this.callback = callback
-    this.recursiveParser = createRecursiveParser(20, '\n')
   }
 
-  run(chunk: Buffer): void {
-    this.buffer += chunk.toString()
-    while (true) {
-      const res = this.recursiveParser(0, this.buffer, this.callback)
-      this.buffer = res.buffer
-      if (res.code === 0) {
-        break
+  run(chunk: Buffer | string): void {
+    // Accumulate raw bytes. Decoding must happen only on complete, newline-delimited
+    // messages: a chunk boundary can fall in the middle of a multi-byte UTF-8
+    // sequence, and decoding each chunk independently would corrupt those bytes
+    // (producing U+FFFD) and break JSON.parse on large, fragmented responses.
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8')
+    this.buffer = this.buffer.length === 0 ? bytes : Buffer.concat([this.buffer, bytes])
+
+    let start = 0
+    let idx: number
+    let n = 0
+    while ((idx = this.buffer.indexOf(DELIMITER, start)) !== -1) {
+      const line = this.buffer.toString('utf8', start, idx)
+      if (line.length > 0) {
+        this.callback(line, n++)
       }
+      start = idx + 1
     }
+
+    // Keep any trailing partial message (no newline yet) for the next chunk.
+    this.buffer = start === 0 ? this.buffer : this.buffer.subarray(start)
   }
 }

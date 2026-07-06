@@ -1,6 +1,6 @@
 {
   "name": "@bitcoincash/electrum-client",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Electrum protocol client for Node.js supporting Fulcrum",
   "author": "Melroy van den Berg <melroy@melroy.org>",
   "license": "MIT",
@@ -9,6 +9,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
     "check-types": "tsc --noEmit",
     "test": "vitest",
     "lint": "eslint src",

@@ -180,7 +180,27 @@ export abstract class Client {
 
   protected onMessage(body: string | undefined): void {
     if (!body) return
-    const msg = JSON.parse(body)
+    let msg: any
+    try {
+      msg = JSON.parse(body)
+    } catch (e) {
+      // A malformed message must not crash the whole process. Report it via
+      // onError with a context window around the failure so the corruption is
+      // diagnosable (e.g. mangled bytes from a chunk-boundary decode bug).
+      const err = e as Error
+      const match = /position (\d+)/.exec(err.message)
+      const pos = match ? Number(match[1]) : -1
+      let context = ''
+      if (pos >= 0) {
+        const from = Math.max(0, pos - 100)
+        const to = Math.min(body.length, pos + 100)
+        context = ` | length=${body.length} around[${from}..${to}]=${JSON.stringify(body.slice(from, to))}`
+      } else {
+        context = ` | length=${body.length} head=${JSON.stringify(body.slice(0, 200))}`
+      }
+      this.onError(new Error(`Failed to parse Electrum message: ${err.message}${context}`))
+      return
+    }
     if (msg instanceof Array) {
       this.response(msg)
     } else {
