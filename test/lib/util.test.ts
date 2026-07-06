@@ -63,5 +63,56 @@ describe('util package', () => {
       assert.strictEqual(out.length, count)
       assert.strictEqual(JSON.parse(out[count - 1]!).i, count - 1)
     })
+
+    test('strips a trailing CR from CRLF-terminated messages', () => {
+      const out: string[] = []
+      const mp = new util.MessageParser((body) => out.push(body!))
+      mp.run(Buffer.from('{"a":1}\r\n{"b":2}\r\n'))
+
+      assert.deepStrictEqual(out, ['{"a":1}', '{"b":2}'])
+    })
+
+    test('does not corrupt an in-flight message when the callback re-enters run()', () => {
+      // Reproduces the interleaving bug: a callback synchronously feeds another
+      // chunk (as a real socket read would), mutating the buffer while the outer
+      // loop is still iterating. A cached buffer reference with a captured offset
+      // would splice the injected message into the middle of a later one.
+      const out: string[] = []
+      let injected = false
+      const mp = new util.MessageParser((body) => {
+        out.push(body!)
+        if (!injected) {
+          injected = true
+          // Re-enter with a complete extra message while still inside run().
+          mp.run(Buffer.from('{"injected":true}\n'))
+        }
+      })
+
+      // First message triggers the re-entrant injection; a large second message
+      // must survive intact and parse cleanly.
+      const big = '{"result":"' + 'a'.repeat(5000) + '"}'
+      mp.run(Buffer.from('{"first":1}\n' + big + '\n'))
+
+      assert.strictEqual(out.length, 3)
+      // Every emitted message must be valid, unspliced JSON. Delivery order is
+      // not guaranteed across re-entrancy, so assert on content by identity.
+      const parsed = out.map((line) => {
+        let obj: any
+        assert.doesNotThrow(() => (obj = JSON.parse(line)))
+        return obj
+      })
+      assert.ok(
+        parsed.some((o) => o.first === 1),
+        'first message intact'
+      )
+      assert.ok(
+        parsed.some((o) => o.injected === true),
+        'injected message intact'
+      )
+      assert.ok(
+        parsed.some((o) => o.result && o.result.length === 5000),
+        'large message intact and not spliced'
+      )
+    })
   })
 })

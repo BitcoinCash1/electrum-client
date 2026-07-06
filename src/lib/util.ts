@@ -50,18 +50,25 @@ export class MessageParser {
     const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, 'utf8')
     this.buffer = this.buffer.length === 0 ? bytes : Buffer.concat([this.buffer, bytes])
 
-    let start = 0
     let idx: number
     let n = 0
-    while ((idx = this.buffer.indexOf(DELIMITER, start)) !== -1) {
-      const line = this.buffer.toString('utf8', start, idx)
+    while ((idx = this.buffer.indexOf(DELIMITER)) !== -1) {
+      // Detach the complete message (and advance the buffer) BEFORE invoking the
+      // callback. The callback can synchronously trigger another socket read that
+      // re-enters run() and mutates this.buffer; if we kept scanning a cached
+      // reference with a captured offset, a freshly-arrived message could be
+      // spliced into the middle of the one we're assembling.
+      let end = idx
+      // Trim a trailing CR so CRLF-terminated servers (e.g. Fulcrum) don't leave
+      // a stray '\r' on each decoded message.
+      if (end > 0 && this.buffer[end - 1] === 0x0d) {
+        end--
+      }
+      const line = this.buffer.toString('utf8', 0, end)
+      this.buffer = this.buffer.subarray(idx + 1)
       if (line.length > 0) {
         this.callback(line, n++)
       }
-      start = idx + 1
     }
-
-    // Keep any trailing partial message (no newline yet) for the next chunk.
-    this.buffer = start === 0 ? this.buffer : this.buffer.subarray(start)
   }
 }
