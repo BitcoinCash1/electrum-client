@@ -42,6 +42,14 @@ export class MessageParser {
     this.callback = callback
   }
 
+  // Discard any partially-received message. Must be called when the underlying
+  // socket is replaced (reconnect): the buffer may hold the unterminated tail of
+  // a response from the dead connection, and concatenating the next socket's
+  // bytes onto it would splice two unrelated messages together.
+  reset(): void {
+    this.buffer = Buffer.alloc(0)
+  }
+
   run(chunk: Buffer | string): void {
     // Accumulate raw bytes. Decoding must happen only on complete, newline-delimited
     // messages: a chunk boundary can fall in the middle of a multi-byte UTF-8
